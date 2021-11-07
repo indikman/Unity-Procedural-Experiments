@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class TargetFollower : MonoBehaviour
 {
-    public Transform Target;
+    public InverseKinematics targetResolver;
     public float maxDistance;
     public float followSpeed = 100f;
 
@@ -22,10 +22,10 @@ public class TargetFollower : MonoBehaviour
 
     void Update()
     {
-        if (Target == null)
+        if (targetResolver == null)
             return;
 
-        var distance = Vector3.Distance(Target.position, _transform.position);
+        var distance = Vector3.Distance(targetResolver.GetTargetPosition(), _transform.position);
 
         if(distance > maxDistance)
         {
@@ -41,7 +41,8 @@ public class TargetFollower : MonoBehaviour
                 isMoving = false;
             }
 
-            Target.position = Vector3.Lerp(Target.position, _transform.position, timer);
+            targetResolver.SetTarget(Vector3.Lerp(targetResolver.GetTargetPosition(), _transform.position, timer));
+            //Target.position = ;
         }
 
     }

@@ -26,7 +26,17 @@ public class InverseKinematics : MonoBehaviour
     protected Quaternion targetRotationStart;
     protected Quaternion rootRotationStart;
 
+    public void SetTarget(Vector3 position)
+    {
+        target.position = position;
+       // target.rotation = rotation;
+        target.localScale = Vector3.zero;
+    }
 
+    public Vector3 GetTargetPosition()
+    {
+        return target.position;
+    }
 
     void Start()
     {
