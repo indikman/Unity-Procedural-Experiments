@@ -9,15 +9,24 @@ public class InverseKinematics : MonoBehaviour
     public int chainLength = 3;
 
     public Transform target;
-
-    public Transform[] bones;
-    public Vector3[] positions;
-    public float[] boneLength;
+    public Transform pole;
 
     public int iterations = 10;
     public float delta = 0.001f;
 
     private float completeLength;
+
+    protected Transform[] bones;
+    protected Vector3[] positions;
+    protected float[] boneLength;
+
+    protected Vector3[] startDirections;
+    protected Quaternion[] startRotations;
+
+    protected Quaternion targetRotationStart;
+    protected Quaternion rootRotationStart;
+
+
 
     void Start()
     {
@@ -35,6 +44,18 @@ public class InverseKinematics : MonoBehaviour
         positions = new Vector3[chainLength + 1];
         boneLength = new float[chainLength];
 
+        startDirections = new Vector3[chainLength + 1];
+        startRotations = new Quaternion[chainLength + 1];
+
+
+        if(target == null)
+        {
+            // If no targets are setup, create a new target
+            target = new GameObject(gameObject.name + " Target").transform;
+            target.position = transform.position;
+        }
+
+        targetRotationStart = target.rotation;
 
         var current = transform;
         completeLength = 0;
@@ -43,15 +64,17 @@ public class InverseKinematics : MonoBehaviour
         for (int i = bones.Length - 1; i >= 0; i--)
         {
             bones[i] = current;
-
+            startRotations[i] = current.rotation;
             
 
             if (i == bones.Length - 1)
             {
-
+                startDirections[i] = target.position - current.position;
             }
             else
             {
+                startDirections[i] = bones[i + 1].position - current.position;
+
                 boneLength[i] = (bones[i + 1].position - current.position).magnitude;
                 completeLength += boneLength[i];
 
@@ -74,6 +97,11 @@ public class InverseKinematics : MonoBehaviour
 
         if (boneLength.Length != chainLength)
             Init();
+
+        // setting up the rootbone directions
+        var rootRotation = (bones[0].parent != null) ? bones[0].parent.rotation : Quaternion.identity;
+        var rootRotDiff = rootRotation * Quaternion.Inverse(rootRotationStart);
+
 
         // Get the position
         for (int i = 0; i < bones.Length; i++)
@@ -119,19 +147,48 @@ public class InverseKinematics : MonoBehaviour
                 }
 
 
+                // Middle joints should move towards a plane
+                if (pole != null)
+                {
+                    for (int i = 1; i < positions.Length-1; i++)
+                    {
+                        var plane = new Plane((positions[i + 1] - positions[i - 1]), positions[i - 1]);
+                        var projectedPole = plane.ClosestPointOnPlane(pole.position);
+                        var projectedBone = plane.ClosestPointOnPlane(positions[i]);
+
+                        //calculate the angle
+                        var angle = Vector3.SignedAngle((projectedBone - positions[i - 1]), (projectedPole - positions[i - 1]), plane.normal);
+                        positions[i] = positions[i - 1] + Quaternion.AngleAxis(angle, plane.normal) * (positions[i] - positions[i - 1]);
+                    }
+                }
+
+
                 //if the last position is closer to the target (closer than the delta), we stop
                 if((positions[positions.Length-1] - target.position).sqrMagnitude < delta * delta)
                 {
                     break;
                 }
 
+                
+
+
             }
         }
 
 
-        // Set the position
+        // Set the position and rotations
         for (int i = 0; i < positions.Length; i++)
         {
+            if (i == positions.Length - 1)
+            {
+                bones[i].rotation = target.rotation * Quaternion.Inverse(targetRotationStart) * startRotations[i];
+            }
+            else
+            {
+                bones[i].rotation = Quaternion.FromToRotation(startDirections[i], positions[i + 1] - positions[i]) * startRotations[i];
+            }
+
+
             bones[i].position = positions[i];
         }
 
